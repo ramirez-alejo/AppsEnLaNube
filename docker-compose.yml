@@ -1,0 +1,75 @@
+version: "3.2"
+services:
+  rabbit:
+    image: rabbitmq:3-management-alpine
+    hostname: rabbitmq
+    container_name: rabbit
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/
+      - rabbitmq_log:/var/log/rabbitmq/
+    restart: unless-stopped
+    networks:
+      - default
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "SWQOKODSQALRPCLNMEQG"
+      RABBITMQ_DEFAULT_USER: "rabbitmq"
+      RABBITMQ_DEFAULT_PASS: "rabbitmq"
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "5672" ]
+      interval: 5s
+      timeout: 15s
+      retries: 3  
+  db:
+    image: postgres
+    environment:
+      - POSTGRES_DB=vinyls
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - default
+
+  app-drones:
+    build: ./app-drones
+    ports:
+      - 6000:5000
+    working_dir: /src/
+    command: flask run --host=0.0.0.0
+    env_file:
+      - .env 
+    depends_on:
+      - db
+      - rabbit
+    networks:
+      - default
+    volumes:
+      - ./app-drones:/src
+
+  app-drones-worker:
+    build: ./app-drones-worker
+    working_dir: /src/
+    command: python app.py
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - rabbit
+    networks:
+      - default
+    
+
+
+volumes:
+  rabbitmq_data:
+  rabbitmq_log:
+  postgres_data:
+
+networks:
+  default:
+    driver: bridge

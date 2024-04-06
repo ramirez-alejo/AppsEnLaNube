@@ -1,0 +1,4 @@
+azure-storage-blob==12.9.0
+pika==1.2.0
+SQLAlchemy==2.0.29
+SQLAlchemy_Utils==0.41.2
