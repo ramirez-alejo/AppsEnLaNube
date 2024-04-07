@@ -1,5 +1,7 @@
 from sqlalchemy import Column, Integer, String, Enum
-from database import Base
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
 
 class Video(Base):
     __tablename__ = 'videos'
@@ -8,7 +10,7 @@ class Video(Base):
     name = Column(String(255))
     url = Column(String(255))
     processed_url = Column(String(255))
-    status = Column('status', Enum('pending', 'processing', 'completed', 'failed', name='status'), default='pending')
+    status = Column(Enum('pending', 'processing', 'completed', 'failed', name='status'), default='pending')
 
     def __repr__(self):
         return f"<Video(name='{self.name}', url='{self.url}', status='{self.status}')>"

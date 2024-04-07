@@ -12,7 +12,7 @@ services:
       - rabbitmq_log:/var/log/rabbitmq/
     restart: unless-stopped
     networks:
-      - default
+      - rabbitmq_go_net
     environment:
       RABBITMQ_ERLANG_COOKIE: "SWQOKODSQALRPCLNMEQG"
       RABBITMQ_DEFAULT_USER: "rabbitmq"
@@ -33,35 +33,37 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - default
+      - rabbitmq_go_net
 
   app-drones:
     build: ./app-drones
     ports:
       - 6000:5000
-    working_dir: /src/
     command: flask run --host=0.0.0.0
-    env_file:
-      - .env 
+    environment:
+      - RABBIT_HOST=rabbit
+      - POSTGRES_HOST=db
     depends_on:
       - db
       - rabbit
     networks:
-      - default
+      - rabbitmq_go_net
     volumes:
       - ./app-drones:/src
+    restart: on-failure
 
   app-drones-worker:
     build: ./app-drones-worker
-    working_dir: /src/
     command: python app.py
-    env_file:
-      - .env
+    environment:
+      - RABBIT_HOST=rabbit
+      - POSTGRES_HOST=db
     depends_on:
       - db
       - rabbit
     networks:
-      - default
+      - rabbitmq_go_net
+    restart: on-failure
     
 
 
@@ -69,7 +71,9 @@ volumes:
   rabbitmq_data:
   rabbitmq_log:
   postgres_data:
+  app-drones:
 
 networks:
-  default:
+  rabbitmq_go_net:
     driver: bridge
+    

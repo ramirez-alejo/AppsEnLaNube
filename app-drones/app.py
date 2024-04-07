@@ -1,13 +1,18 @@
-import os, uuid, json, pika
+import os, uuid, json, pika, sys
 from flask import Flask, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from azure.storage.blob import BlobServiceClient
-from Modelos.Usuario import Usuario
-from Modelos.Video import Video
-from database import init_db
+from Modelos.usuario import Usuario
+from Modelos.video import Video
 from sqlalchemy.sql import text
 from werkzeug.utils import secure_filename
+from sqlalchemy import create_engine
+from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+
+
+sys.path.append(os.path.join(os.path.dirname(__file__), 'Modelos'))
 
 
 rabbit_host = os.environ.get("RABBIT_HOST", 'localhost')
@@ -29,6 +34,23 @@ blob_account_connection_string = os.environ.get("BLOB_ACCOUNT_CONNECTION_STRING"
 blob_container_name = os.environ.get("BLOB_CONTAINER_NAME", 'nube')
 blob_service_client = BlobServiceClient.from_connection_string(blob_account_connection_string)
 blob_container_client = blob_service_client.get_container_client(blob_container_name)
+
+
+engine = create_engine(f'postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/postgres')
+db_session = scoped_session(sessionmaker(autocommit=False,
+                                         autoflush=False,
+                                         bind=engine))
+Base = declarative_base()
+Base.query = db_session.query_property()
+
+def init_db():
+    # import all modules here that might define models so that
+    # they will be registered properly on the metadata.  Otherwise
+    # you will have to import them first before calling init_db()
+    import Modelos.usuario
+    import Modelos.video
+    Base.metadata.create_all(bind=engine)
+
 
 
 app = Flask(__name__)
