@@ -2,8 +2,8 @@ import os, json, pika, sys
 from sqlalchemy import create_engine
 from azure.storage.blob import BlobServiceClient
 from Modelos.video import Video
-from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import  sessionmaker
+from database import init_db, get_session
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -36,31 +36,10 @@ def get_engine(user, passwd, host, port, db):
     url = f"postgresql://{user}:{passwd}@{host}:{port}/{db}"
     if not database_exists(url):
         create_database(url)
-    engine = create_engine(url, pool_size=50, echo=False)
+    engine = create_engine(url, pool_size=50, echo=True)
     return engine
 
 engine = get_engine(postgres_user, postgres_password, postgres_host, postgres_port, 'postgres')
-
-def get_session():
-    session = sessionmaker(bind=engine)()
-    return session
-
-
-engine = create_engine(f'postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/postgres')
-db_session = scoped_session(sessionmaker(autocommit=False,
-                                         autoflush=False,
-                                         bind=engine))
-Base = declarative_base()
-Base.query = db_session.query_property()
-
-def init_db():
-    # import all modules here that might define models so that
-    # they will be registered properly on the metadata.  Otherwise
-    # you will have to import them first before calling init_db()
-    import Modelos.usuario
-    import Modelos.video
-    Base.metadata.create_all(bind=engine)
-
 init_db()
 
 
@@ -76,9 +55,9 @@ def file_processed(ch, method, properties, body):
                 data.readinto(f) """
             print('Video downloaded')
             print('Updating video status to processing')
-            video = Video.query.get(message['id'])
+            video = session.query(Video).get(message['id'])
             if video is None:
-                print('Video not found')
+                print('Video with id', message['id'], 'not found')
                 return False
             print('Video found with filename:', video.name)
             video.status = 'processing'
@@ -93,7 +72,7 @@ def file_processed(ch, method, properties, body):
         return True
     except Exception as e:
         print('Error:', e)
-        video = Video.query.get(message['id'])
+        video = session.query(Video).get(message['id'])
         if video:
             video.status = 'failed'
             session.commit()

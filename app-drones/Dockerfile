@@ -1,9 +1,10 @@
 # Use an official Python runtime as a parent image
 FROM python:3.12-slim
 
-ADD app.py .
-ADD requirements.txt .
-ADD Modelos .
+COPY app.py .
+COPY database.py .
+COPY requirements.txt .
+COPY Modelos Modelos
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt

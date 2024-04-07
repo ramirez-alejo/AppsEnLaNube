@@ -9,7 +9,7 @@ from sqlalchemy.sql import text
 from werkzeug.utils import secure_filename
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from database import init_db
 
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'Modelos'))
@@ -40,24 +40,15 @@ engine = create_engine(f'postgresql://{postgres_user}:{postgres_password}@{postg
 db_session = scoped_session(sessionmaker(autocommit=False,
                                          autoflush=False,
                                          bind=engine))
-Base = declarative_base()
-Base.query = db_session.query_property()
-
-def init_db():
-    # import all modules here that might define models so that
-    # they will be registered properly on the metadata.  Otherwise
-    # you will have to import them first before calling init_db()
-    import Modelos.usuario
-    import Modelos.video
-    Base.metadata.create_all(bind=engine)
-
 
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/postgres'
 db = SQLAlchemy(app)
-init_db()
-migrate = Migrate(app, db)
+
+with app.app_context():
+    init_db()
+    migrate = Migrate(app, db)
 
 
 @app.route('/health', methods=['GET'])
