@@ -51,15 +51,19 @@ with app.app_context():
     migrate = Migrate(app, db)
 
 
-@app.route('/health', methods=['GET'])
+@app.route('/api/health', methods=['GET'])
 def salud_servicio():
      if hay_conexion_bd():
           return 'healthy'
      return 'unhealthy'
 
 
-@app.route('/signup', methods=['POST'])
+@app.route('/api/auth/signup', methods=['POST'])
 def signup():
+    if not request.json.get('name') or not request.json.get('email') or not request.json.get('password1') or not request.json.get('password2'):
+        return 'must provide name, email, password1 and password2', 400
+    if request.json.get('password1') != request.json.get('password2'):
+        return 'Passwords do not match', 400
     email = request.json.get('email')
     user = Usuario.query.filter_by(email=email).first()
     if user:
@@ -67,12 +71,12 @@ def signup():
     user = Usuario()
     user.name = request.json.get('name')
     user.email = email
-    user.password = request.json.get('password')
+    user.password = request.json.get('password1')
     db.session.add(user)
     db.session.commit()
     return 'User created', 201
 
-@app.route('/login', methods=['POST'])
+@app.route('/api/auth/login', methods=['POST'])
 def login():
     email = request.json.get('email')
     user = Usuario.query.filter_by(email=email).first()
@@ -80,7 +84,7 @@ def login():
         return 'Invalid credentials', 401
     return 'Login successful', 200
 
-@app.route('/upload', methods=['POST'])
+@app.route('/api/tasks', methods=['POST'])
 def upload():
     print('upload request with file:', request.files)    
     if 'video' not in request.files:
@@ -101,18 +105,19 @@ def upload():
     message = json.dumps({"filename": file.filename, "path": blob_client.url, "id": video.id})
     channel.basic_publish(exchange='', routing_key='files', body=message)
 
-    return 'Video file uploaded, id = ' + str(video.id), 201
+    return 'File uploaded, Created task with id = ' + str(video.id), 201
 
-@app.route('/videos', methods=['GET'])
+@app.route('/api/tasks', methods=['GET'])
 def videos():
-    videos = Video.query.all()
-    return {'videos': [video.__repr__() for video in videos]}, 200
+    videos = Video.query.all()#.filter_by(status='completed') TODO: Filter by userId
+    return {'tasks': [video.__repr__() for video in videos]}, 200
 
-@app.route('/videos/<int:id>', methods=['GET'])
+
+@app.route('/api/tasks/<int:id>', methods=['GET'])
 def video(id):
     video = Video.query.get(id)
     if not video:
-        return 'Video with id ' + str(id) + ' not found', 404
+        return 'Task with id ' + str(id) + ' not found', 404
     return video.__repr__(), 200
 
         
