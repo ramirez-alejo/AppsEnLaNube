@@ -1,5 +1,5 @@
 import os, uuid, json, pika, sys
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from azure.storage.blob import BlobServiceClient
@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from database import init_db
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'Modelos'))
@@ -19,9 +20,6 @@ rabbit_host = os.environ.get("RABBIT_HOST", 'localhost')
 rabbit_port = os.environ.get("RABBIT_PORT", '5672')
 rabbit_user = os.environ.get("RABBIT_USER", 'rabbitmq')
 rabbit_password = os.environ.get("RABBIT_PASSWORD", 'rabbitmq')
-connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password)))
-channel = connection.channel()
-channel.queue_declare(queue='files')
 
 
 postgres_host = os.environ.get("POSTGRES_HOST", 'localhost')
@@ -49,6 +47,42 @@ db = SQLAlchemy(app)
 with app.app_context():
     init_db()
     migrate = Migrate(app, db)
+
+
+# Setup the Flask-JWT-Extended extension
+app.config["JWT_SECRET_KEY"] = "super-secret"
+jwt = JWTManager(app)
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password)))
+channel = connection.channel()
+channel.queue_declare(queue='files')
+channel.close()
+connection.close()
+
+
+def get_rabbit_connection():
+    global connection
+    try:
+        # Check if the connection is closed
+        if connection.is_closed:
+            # Create a new connection if the existing one is closed
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password)))
+    except NameError:
+        # Create a new connection if it doesn't exist
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password)))
+    return connection
+
+def get_rabbit_channel():
+    global channel
+    try:
+        # Check if the channel is closed
+        if channel.is_closed:
+            # Create a new channel if the existing one is closed
+            channel = get_rabbit_connection().channel()
+    except NameError:
+        # Create a new channel if it doesn't exist
+        channel = get_rabbit_connection().channel()
+    return channel
 
 
 @app.route('/api/health', methods=['GET'])
@@ -82,13 +116,16 @@ def login():
     user = Usuario.query.filter_by(email=email).first()
     if not user or user.password != request.json.get('password'):
         return 'Invalid credentials', 401
-    return 'Login successful', 200
+    access_token = create_access_token(identity={"id": user.id, "name": user.name, "email": user.email})
+    return jsonify(access_token=access_token)
 
 @app.route('/api/tasks', methods=['POST'])
+@jwt_required()
 def upload():
     print('upload request with file:', request.files)    
     if 'video' not in request.files:
         return 'No file part in the request', 400
+    current_user = get_jwt_identity()
     file = request.files['video']
     # Updaload the file with a unique name
     file.filename = str(uuid.uuid4()) + secure_filename(file.filename)
@@ -99,27 +136,49 @@ def upload():
     video.name = file.filename
     video.url = blob_client.url
     video.status = 'pending'
+    video.usuario = current_user['id']
     db.session.add(video)
     db.session.commit()
      # Create a json message with the file name and path
     message = json.dumps({"filename": file.filename, "path": blob_client.url, "id": video.id})
-    channel.basic_publish(exchange='', routing_key='files', body=message)
+    with get_rabbit_channel() as channel:
+        channel.basic_publish(exchange='', routing_key='files', body=message)
+
 
     return 'File uploaded, Created task with id = ' + str(video.id), 201
 
 @app.route('/api/tasks', methods=['GET'])
+@jwt_required()
 def videos():
-    videos = Video.query.all()#.filter_by(status='completed') TODO: Filter by userId
+    current_user = get_jwt_identity()
+    videos = Video.query.filter_by(usuario=current_user['id']).all()
     return {'tasks': [video.__repr__() for video in videos]}, 200
 
 
 @app.route('/api/tasks/<int:id>', methods=['GET'])
+@jwt_required()
 def video(id):
+    current_user = get_jwt_identity()
     video = Video.query.get(id)
-    if not video:
+    if not video or video.usuario != current_user['id']:
         return 'Task with id ' + str(id) + ' not found', 404
     return video.__repr__(), 200
 
+
+@app.route('/api/tasks/<int:id>', methods=['DELETE'])
+@jwt_required()
+def delete_video(id):
+    current_user = get_jwt_identity()
+    video = Video.query.get(id)
+    if not video or video.usuario != current_user['id']:
+        return 'Task with id ' + str(id) + ' not found', 404
+    
+    if video not in db.session:
+        video = db.session.merge(video)
+
+    db.session.delete(video)
+    db.session.commit()
+    return '', 200
         
 def hay_conexion_bd():
     valor = False
