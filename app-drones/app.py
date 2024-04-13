@@ -63,25 +63,20 @@ connection.close()
 def get_rabbit_connection():
     global connection
     try:
-        # Check if the connection is closed
         if connection.is_closed:
-            # Create a new connection if the existing one is closed
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password)))
-    except NameError:
-        # Create a new connection if it doesn't exist
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password)))
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password), heartbeat=600))
+    except (NameError, pika.exceptions.ConnectionClosed):
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password), heartbeat=600))
     return connection
 
 def get_rabbit_channel():
     global channel
+    connection = get_rabbit_connection()
     try:
-        # Check if the channel is closed
         if channel.is_closed:
-            # Create a new channel if the existing one is closed
-            channel = get_rabbit_connection().channel()
-    except NameError:
-        # Create a new channel if it doesn't exist
-        channel = get_rabbit_connection().channel()
+            channel = connection.channel()
+    except (NameError, pika.exceptions.ConnectionClosed):
+        channel = connection.channel()
     return channel
 
 

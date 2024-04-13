@@ -2,6 +2,7 @@ import os, json, pika, sys
 from sqlalchemy import create_engine
 from azure.storage.blob import BlobServiceClient
 from Modelos.video import Video
+from Modelos.usuario import Usuario
 from sqlalchemy.orm import  sessionmaker
 from database import init_db, get_session
 
@@ -42,6 +43,11 @@ def get_engine(user, passwd, host, port, db):
 engine = get_engine(postgres_user, postgres_password, postgres_host, postgres_port, 'postgres')
 init_db()
 
+#Make sure the tmp folder exists
+if not os.path.exists('/tmp'):
+    os.makedirs('/tmp')
+
+
 
 def file_processed(ch, method, properties, body):
     print('Received message:', body)
@@ -49,10 +55,10 @@ def file_processed(ch, method, properties, body):
     try:
         with get_session() as session:
             print('Downloading video from:', message['path'])
-            """ blob_client = blob_container_client.get_blob_client(message['path'])
+            blob_client = blob_container_client.get_blob_client(message['filename'])
             with open(f'/tmp/{message["filename"]}', 'wb') as f:
                 data = blob_client.download_blob()
-                data.readinto(f) """
+                data.readinto(f)
             print('Video downloaded')
             print('Updating video status to processing')
             video = session.query(Video).get(message['id'])
@@ -63,10 +69,20 @@ def file_processed(ch, method, properties, body):
             video.status = 'processing'
             session.commit()
             print('Processing video')
-            #TODO: Process video
-            print('Video processed')
+            # Process video
+            #using shell command cut the video to 20 seconds
+            os.system(f'ffmpeg -i /tmp/{message["filename"]} -t 20 /tmp/short-{message["filename"]}')
+            os.system(f'ffmpeg -i /tmp/short-{message["filename"]} -vf scale=1280:720 /tmp/aspect-{message["filename"]}')
+            os.system(f'ffmpeg -i /tmp/aspect-{message["filename"]} -i Logos/IDRL.png -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,0,2)\'" /tmp/logo-{message["filename"]}')
+            os.system(f'ffmpeg -i /tmp/logo-{message["filename"]} -i Logos/IDRL.png -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,18,20)\'" /tmp/processed-{message["filename"]}')
+
+            print('Uploading processed video')
+            with open(f'/tmp/processed-{message["filename"]}', 'rb') as f:
+                blob_client = blob_container_client.get_blob_client(f'processed-{message["filename"]}')
+                blob_client.upload_blob(f, overwrite=True)
+            print('Processed video uploaded')
             video.status = 'completed'
-            video.processed_url = 'Test URL'
+            video.processed_url = f'processed-{message["filename"]}'
             session.commit()
             print('Video updated')
         return True
