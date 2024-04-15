@@ -7,24 +7,6 @@
 	},
 	"item": [
 		{
-			"name": "Health",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "localhost:6000/health",
-					"host": [
-						"localhost"
-					],
-					"port": "6000",
-					"path": [
-						"health"
-					]
-				}
-			},
-			"response": []
-		},
-		{
 			"name": "Tasks",
 			"request": {
 				"auth": {
@@ -49,9 +31,56 @@
 						"api",
 						"tasks"
 					]
-				}
+				},
+				"description": "Este punto final recupera una lista de tareas.\n\n### Request\n\n`GET localhost:6000/api/tasks`\n\n### Response\n\n- Status: 200\n- Content-Type: application/json\n    \n\n``` json\n{\n    \"tasks\": [\n        \"\"\n    ]\n}\n\n ```\n\n#### Example Response\n\n``` json\n{\n    \"tasks\": []\n}\n\n ```"
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Tasks",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "localhost:6000/api/tasks",
+							"host": [
+								"localhost"
+							],
+							"port": "6000",
+							"path": [
+								"api",
+								"tasks"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Server",
+							"value": "Werkzeug/3.0.1 Python/3.12.3"
+						},
+						{
+							"key": "Date",
+							"value": "Mon, 15 Apr 2024 02:28:16 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Content-Length",
+							"value": "13"
+						},
+						{
+							"key": "Connection",
+							"value": "close"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"tasks\": []\n}"
+				}
+			]
 		},
 		{
 			"name": "Get Task",
@@ -69,7 +98,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "localhost:6000/api/tasks/1",
+					"raw": "localhost:6000/api/tasks/51",
 					"host": [
 						"localhost"
 					],
@@ -77,11 +106,59 @@
 					"path": [
 						"api",
 						"tasks",
-						"1"
+						"51"
 					]
-				}
+				},
+				"description": "Este endpoint realiza una solicitud HTTP GET a localhost:6000/api/tasks/:id. Devuelve la informacion de la tarea de procesamiento de un video, como su estado, url origina (url) y url procesada (processed_url) en caso de que su estado sea completada\n\n\\*Requiere de autorizacion, ver endpoint \"login\""
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Get Task",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "localhost:6000/api/tasks/51",
+							"host": [
+								"localhost"
+							],
+							"port": "6000",
+							"path": [
+								"api",
+								"tasks",
+								"51"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "html",
+					"header": [
+						{
+							"key": "Server",
+							"value": "Werkzeug/3.0.1 Python/3.12.3"
+						},
+						{
+							"key": "Date",
+							"value": "Mon, 15 Apr 2024 03:03:44 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "text/html; charset=utf-8"
+						},
+						{
+							"key": "Content-Length",
+							"value": "370"
+						},
+						{
+							"key": "Connection",
+							"value": "close"
+						}
+					],
+					"cookie": [],
+					"body": "Video(id='51', name='15bceb54-5711-4e0c-a6b7-5a42c95e0719SampleVideo_1280x720_20mb.mp4', url='https://testingstoragealejandro.blob.core.windows.net/nube/15bceb54-5711-4e0c-a6b7-5a42c95e0719SampleVideo_1280x720_20mb.mp4', status='completed, created='2024-04-13 15:21:21.759151', processed_url='processed-15bceb54-5711-4e0c-a6b7-5a42c95e0719SampleVideo_1280x720_20mb.mp4')"
+				}
+			]
 		},
 		{
 			"name": "signup",
@@ -110,7 +187,63 @@
 					]
 				}
 			},
-			"response": []
+			"response": [
+				{
+					"name": "signup",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"test3@test.com\",\r\n    \"name\": \"Alejandro3\",\r\n    \"password1\": \"Alejandro\",\r\n    \"password2\": \"Alejandro\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:6000/api/auth/signup",
+							"host": [
+								"localhost"
+							],
+							"port": "6000",
+							"path": [
+								"api",
+								"auth",
+								"signup"
+							]
+						}
+					},
+					"status": "BAD REQUEST",
+					"code": 400,
+					"_postman_previewlanguage": "html",
+					"header": [
+						{
+							"key": "Server",
+							"value": "Werkzeug/3.0.1 Python/3.12.3"
+						},
+						{
+							"key": "Date",
+							"value": "Mon, 15 Apr 2024 02:24:30 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "text/html; charset=utf-8"
+						},
+						{
+							"key": "Content-Length",
+							"value": "19"
+						},
+						{
+							"key": "Connection",
+							"value": "close"
+						}
+					],
+					"cookie": [],
+					"body": "User already exists"
+				}
+			]
 		},
 		{
 			"name": "login",
@@ -132,7 +265,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"email\": \"test@test.com\",\r\n    \"password\": \"Alejandro\"\r\n}",
+					"raw": "{\r\n    \"email\": \"test3@test.com\",\r\n    \"password\": \"Alejandro\"\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -150,9 +283,66 @@
 						"auth",
 						"login"
 					]
-				}
+				},
+				"description": "Este endpoint del API es una solicitud POST a localhost:6000/api/auth/login, que se utiliza para la autenticación del usuario. La solicitud requiere una carga útil JSON en el tipo de cuerpo de solicitud sin formato, incluido el correo electrónico y la contraseña del usuario. Tras una ejecución exitosa, la respuesta tendrá un código de estado de 200 y un tipo de contenido JSON. El cuerpo de la respuesta contendrá un token de acceso, que se puede utilizar para solicitudes autenticadas adicionales.\n\n### Request Body\n\n- email (string, required): The email of the user.\n- password (string, required): The password of the user.\n    \n\n### Response\n\n- access_token (string): A token that can be used for authenticated requests.\n    \n\n#### Example Response\n\n``` json\n{\n    \"access_token\": \"example_token\"\n}\n\n ```"
 			},
-			"response": []
+			"response": [
+				{
+					"name": "login",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"test3@test.com\",\r\n    \"password\": \"Alejandro\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "localhost:6000/api/auth/login",
+							"host": [
+								"localhost"
+							],
+							"port": "6000",
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Server",
+							"value": "Werkzeug/3.0.1 Python/3.12.3"
+						},
+						{
+							"key": "Date",
+							"value": "Mon, 15 Apr 2024 02:24:46 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Content-Length",
+							"value": "412"
+						},
+						{
+							"key": "Connection",
+							"value": "close"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTcxMzE0Nzg4NiwianRpIjoiNTQ3ZjUzNjAtMjFjNi00ZDYyLTg1MGQtMjI3OTIwY2ZlNTQ2IiwidHlwZSI6ImFjY2VzcyIsInN1YiI6eyJpZCI6MywibmFtZSI6IkFsZWphbmRybzMiLCJlbWFpbCI6InRlc3QzQHRlc3QuY29tIn0sIm5iZiI6MTcxMzE0Nzg4NiwiY3NyZiI6IjVkZjRkODkwLWVmNTAtNDFkMS05NjQwLWNmOGUxMDZhMzYyMSIsImV4cCI6MTcxMzE0ODc4Nn0.RawayqeIzP2p--inLuPaZUmv0pr9iKK3eUOShrkMG2E\"\n}"
+				}
+			]
 		},
 		{
 			"name": "Crear Task",
@@ -179,7 +369,7 @@
 							"key": "video",
 							"description": "test",
 							"type": "file",
-							"src": "/C:/Users/ramir/Downloads/Entrega-1---Aplicacion-de-Videos---Entorno-Tradicional-2024-12.pdf"
+							"src": "/C:/Users/ramir/Downloads/SampleVideo_1280x720_20mb.mp4"
 						}
 					]
 				},
@@ -193,9 +383,123 @@
 						"api",
 						"tasks"
 					]
-				}
+				},
+				"description": "Este endpoint realiza la creacion de una tarea para el usuario autenticado, la tarea debe contener un video como parametro en form-data, la respuesta consiste en un string donde se indica el numero de la tarea que fue creada para el procesamiento del video, este numero de tarea puede ser usada en los endpoint \"Get Task\" y \"Borrar Task\""
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Crear Task",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "video",
+									"description": "test",
+									"type": "file",
+									"src": "/C:/Users/ramir/Downloads/SampleVideo_1280x720_20mb.mp4"
+								}
+							]
+						},
+						"url": {
+							"raw": "localhost:6000/api/tasks",
+							"host": [
+								"localhost"
+							],
+							"port": "6000",
+							"path": [
+								"api",
+								"tasks"
+							]
+						}
+					},
+					"status": "CREATED",
+					"code": 201,
+					"_postman_previewlanguage": "html",
+					"header": [
+						{
+							"key": "Server",
+							"value": "Werkzeug/3.0.1 Python/3.12.3"
+						},
+						{
+							"key": "Date",
+							"value": "Mon, 15 Apr 2024 02:25:42 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "text/html; charset=utf-8"
+						},
+						{
+							"key": "Content-Length",
+							"value": "40"
+						},
+						{
+							"key": "Connection",
+							"value": "close"
+						}
+					],
+					"cookie": [],
+					"body": "File uploaded, Created task with id = 54"
+				},
+				{
+					"name": "Crear Task",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "video",
+									"description": "test",
+									"type": "file",
+									"src": "/C:/Users/ramir/Downloads/SampleVideo_1280x720_20mb.mp4"
+								}
+							]
+						},
+						"url": {
+							"raw": "localhost:6000/api/tasks",
+							"host": [
+								"localhost"
+							],
+							"port": "6000",
+							"path": [
+								"api",
+								"tasks"
+							]
+						}
+					},
+					"status": "CREATED",
+					"code": 201,
+					"_postman_previewlanguage": "html",
+					"header": [
+						{
+							"key": "Server",
+							"value": "Werkzeug/3.0.1 Python/3.12.3"
+						},
+						{
+							"key": "Date",
+							"value": "Mon, 15 Apr 2024 03:13:49 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "text/html; charset=utf-8"
+						},
+						{
+							"key": "Content-Length",
+							"value": "40"
+						},
+						{
+							"key": "Connection",
+							"value": "close"
+						}
+					],
+					"cookie": [],
+					"body": "File uploaded, Created task with id = 58"
+				}
+			]
 		},
 		{
 			"name": "Borrar Task",
@@ -213,7 +517,7 @@
 				"method": "DELETE",
 				"header": [],
 				"url": {
-					"raw": "localhost:6000/api/tasks/10",
+					"raw": "localhost:6000/api/tasks/:id",
 					"host": [
 						"localhost"
 					],
@@ -221,11 +525,65 @@
 					"path": [
 						"api",
 						"tasks",
-						"10"
+						":id"
+					],
+					"variable": [
+						{
+							"key": "id",
+							"value": ""
+						}
 					]
-				}
+				},
+				"description": "Este endpoint envía una solicitud HTTP DELETE a localhost:6000/api/tasks/:id para eliminar una tarea específica. La respuesta es un codigo 200 para indicar la eliminación exitosa de la tarea."
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Borrar Task",
+					"originalRequest": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "localhost:6000/api/tasks/54",
+							"host": [
+								"localhost"
+							],
+							"port": "6000",
+							"path": [
+								"api",
+								"tasks",
+								"54"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "html",
+					"header": [
+						{
+							"key": "Server",
+							"value": "Werkzeug/3.0.1 Python/3.12.3"
+						},
+						{
+							"key": "Date",
+							"value": "Mon, 15 Apr 2024 02:28:07 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "text/html; charset=utf-8"
+						},
+						{
+							"key": "Content-Length",
+							"value": "0"
+						},
+						{
+							"key": "Connection",
+							"value": "close"
+						}
+					],
+					"cookie": [],
+					"body": null
+				}
+			]
 		}
 	]
 }
