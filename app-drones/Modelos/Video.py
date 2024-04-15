@@ -15,4 +15,4 @@ class Video(Base):
 
 
     def __repr__(self):
-        return f"Video(id='{self.id}', name='{self.name}', url='{self.url}', status='{self.status}, created='{self.created}')"
+        return f"Video(id='{self.id}', name='{self.name}', url='{self.url}', status='{self.status}, created='{self.created}', processed_url='{self.processed_url}')"

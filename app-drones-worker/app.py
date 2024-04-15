@@ -80,9 +80,9 @@ def file_processed(ch, method, properties, body):
             with open(f'/tmp/processed-{message["filename"]}', 'rb') as f:
                 blob_client = blob_container_client.get_blob_client(f'processed-{message["filename"]}')
                 blob_client.upload_blob(f, overwrite=True)
+                video.processed_url = blob_client.url
             print('Processed video uploaded')
             video.status = 'completed'
-            video.processed_url = f'processed-{message["filename"]}'
             session.commit()
             print('Video updated')
         return True
