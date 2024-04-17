@@ -73,8 +73,8 @@ def file_processed(ch, method, properties, body):
             #using shell command cut the video to 20 seconds
             os.system(f'ffmpeg -i /tmp/{message["filename"]} -t 20 /tmp/short-{message["filename"]}')
             os.system(f'ffmpeg -i /tmp/short-{message["filename"]} -vf scale=1280:720 /tmp/aspect-{message["filename"]}')
-            os.system(f'ffmpeg -i /tmp/aspect-{message["filename"]} -i Logos/IDRL.png -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,0,2)\'" /tmp/logo-{message["filename"]}')
-            os.system(f'ffmpeg -i /tmp/logo-{message["filename"]} -i Logos/IDRL.png -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,18,20)\'" /tmp/processed-{message["filename"]}')
+            os.system(f'ffmpeg -i /tmp/aspect-{message["filename"]} -i logos/IDRL.png -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,0,2)\'" /tmp/logo-{message["filename"]}')
+            os.system(f'ffmpeg -i /tmp/logo-{message["filename"]} -i logos/IDRL.png -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,18,20)\'" /tmp/processed-{message["filename"]}')
 
             print('Uploading processed video')
             with open(f'/tmp/processed-{message["filename"]}', 'rb') as f:

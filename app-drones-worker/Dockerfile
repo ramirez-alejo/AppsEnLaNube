@@ -4,8 +4,8 @@ FROM python:3.12-slim
 COPY app.py .
 COPY database.py .
 COPY requirements.txt .
-COPY Modelos Modelos
-COPY Logos Logos
+COPY modelos modelos
+COPY logos logos
 
 RUN apt-get update && apt-get -y install gcc
 RUN apt-get install ffmpeg libsm6 libxext6  -y
