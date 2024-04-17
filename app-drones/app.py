@@ -3,6 +3,8 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from azure.storage.blob import BlobServiceClient
+from modelos.usuario import Usuario
+from modelos.video import Video
 from sqlalchemy.sql import text
 from werkzeug.utils import secure_filename
 from sqlalchemy import create_engine
