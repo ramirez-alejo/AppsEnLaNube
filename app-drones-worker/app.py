@@ -72,6 +72,7 @@ def file_processed(ch, method, properties, body):
             #copy to the nfs from /tmp/
             os.system(f'cp /tmp/processed-{message["filename"]} /nfsshare/processed-{message["filename"]}')
             print('Processed video uploaded')
+            video.processed_url = f'/nfsshare/processed-{message["filename"]}'
             video.status = 'completed'
             session.commit()
             print('Video updated')

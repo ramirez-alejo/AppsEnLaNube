@@ -30,7 +30,10 @@ services:
     command: flask run --host=0.0.0.0
     environment:
       - RABBIT_HOST=rabbit
-      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     depends_on:
       - rabbit
       - app-file-storage
@@ -45,7 +48,10 @@ services:
     command: python app.py
     environment:
       - RABBIT_HOST=rabbit
-      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     depends_on:
       - rabbit
       - app-file-storage
