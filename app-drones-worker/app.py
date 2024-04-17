@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 
-sys.path.append(os.path.join(os.path.dirname(__file__), 'Modelos'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'modelos'))
 
 rabbit_host = os.environ.get("RABBIT_HOST", 'localhost')
 rabbit_port = os.environ.get("RABBIT_PORT", '5672')

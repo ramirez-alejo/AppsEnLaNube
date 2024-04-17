@@ -13,7 +13,7 @@ from database import init_db
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 
 
-sys.path.append(os.path.join(os.path.dirname(__file__), 'Modelos'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'modelos'))
 
 
 rabbit_host = os.environ.get("RABBIT_HOST", 'localhost')
