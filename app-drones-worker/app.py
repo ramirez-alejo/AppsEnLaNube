@@ -1,8 +1,6 @@
 import os, json, pika, sys
 from sqlalchemy import create_engine
 from azure.storage.blob import BlobServiceClient
-from modelos.video import Video
-from modelos.usuario import Usuario
 from sqlalchemy.orm import  sessionmaker
 from database import init_db, get_session
 
