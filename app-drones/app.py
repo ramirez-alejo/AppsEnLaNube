@@ -28,11 +28,6 @@ postgres_user = os.environ.get("POSTGRES_USER", 'postgres')
 postgres_password = os.environ.get("POSTGRES_PASSWORD", 'postgres')
 
 
-blob_account_connection_string = os.environ.get("BLOB_ACCOUNT_CONNECTION_STRING", 'DefaultEndpointsProtocol=https;AccountName=testingstoragealejandro;AccountKey=Cc0ow+VZ7ZarC357VZ8yEZWVoi6vW7iZ2l33shijZSR2j90bDVaEeKaULJKflTFROSaNRL2Sndfl+ASt6BQpjg==;EndpointSuffix=core.windows.net')
-blob_container_name = os.environ.get("BLOB_CONTAINER_NAME", 'nube')
-blob_service_client = BlobServiceClient.from_connection_string(blob_account_connection_string)
-blob_container_client = blob_service_client.get_container_client(blob_container_name)
-
 
 engine = create_engine(f'postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/postgres')
 db_session = scoped_session(sessionmaker(autocommit=False,
@@ -122,20 +117,20 @@ def upload():
         return 'No file part in the request', 400
     current_user = get_jwt_identity()
     file = request.files['video']
-    # Updaload the file with a unique name
+
     file.filename = str(uuid.uuid4()) + secure_filename(file.filename)
-    blob_client = blob_container_client.get_blob_client(file.filename)
-    blob_client.upload_blob(file)
+    file.save('/nfsshare/' + file.filename)
+    
     #Insert the video entry in the db
     video = Video()
     video.name = file.filename
-    video.url = blob_client.url
+    video.url = '/nfsshare/' + file.filename
     video.status = 'pending'
     video.usuario = current_user['id']
     db.session.add(video)
     db.session.commit()
      # Create a json message with the file name and path
-    message = json.dumps({"filename": file.filename, "path": blob_client.url, "id": video.id})
+    message = json.dumps({"filename": file.filename, "path": video.url, "id": video.id})
     with get_rabbit_channel() as channel:
         channel.basic_publish(exchange='', routing_key='files', body=message)
 

@@ -27,12 +27,6 @@ postgres_port = os.environ.get("POSTGRES_PORT", '5432')
 postgres_user = os.environ.get("POSTGRES_USER", 'postgres')
 postgres_password = os.environ.get("POSTGRES_PASSWORD", 'postgres')
 
-
-blob_account_connection_string = os.environ.get("BLOB_ACCOUNT_CONNECTION_STRING", 'DefaultEndpointsProtocol=https;AccountName=testingstoragealejandro;AccountKey=Cc0ow+VZ7ZarC357VZ8yEZWVoi6vW7iZ2l33shijZSR2j90bDVaEeKaULJKflTFROSaNRL2Sndfl+ASt6BQpjg==;EndpointSuffix=core.windows.net')
-blob_container_name = os.environ.get("BLOB_CONTAINER_NAME", 'nube')
-blob_service_client = BlobServiceClient.from_connection_string(blob_account_connection_string)
-blob_container_client = blob_service_client.get_container_client(blob_container_name)
-
 def get_engine(user, passwd, host, port, db):
     url = f"postgresql://{user}:{passwd}@{host}:{port}/{db}"
     if not database_exists(url):
@@ -54,12 +48,6 @@ def file_processed(ch, method, properties, body):
     message = json.loads(body)
     try:
         with get_session() as session:
-            print('Downloading video from:', message['path'])
-            blob_client = blob_container_client.get_blob_client(message['filename'])
-            with open(f'/tmp/{message["filename"]}', 'wb') as f:
-                data = blob_client.download_blob()
-                data.readinto(f)
-            print('Video downloaded')
             print('Updating video status to processing')
             video = session.query(Video).get(message['id'])
             if video is None:
@@ -69,18 +57,20 @@ def file_processed(ch, method, properties, body):
             video.status = 'processing'
             session.commit()
             print('Processing video')
+
+            videoPath = f'/nfsshare/{message["filename"]}'
+
             # Process video
             #using shell command cut the video to 20 seconds
-            os.system(f'ffmpeg -i /tmp/{message["filename"]} -t 20 /tmp/short-{message["filename"]}')
+            os.system(f'ffmpeg -i {videoPath} -t 20 /tmp/short-{message["filename"]}')
             os.system(f'ffmpeg -i /tmp/short-{message["filename"]} -vf scale=1280:720 /tmp/aspect-{message["filename"]}')
             os.system(f'ffmpeg -i /tmp/aspect-{message["filename"]} -i logos/IDRL.png -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,0,2)\'" /tmp/logo-{message["filename"]}')
             os.system(f'ffmpeg -i /tmp/logo-{message["filename"]} -i logos/IDRL.png -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,18,20)\'" /tmp/processed-{message["filename"]}')
 
             print('Uploading processed video')
-            with open(f'/tmp/processed-{message["filename"]}', 'rb') as f:
-                blob_client = blob_container_client.get_blob_client(f'processed-{message["filename"]}')
-                blob_client.upload_blob(f, overwrite=True)
-                video.processed_url = blob_client.url
+            
+            #copy to the nfs from /tmp/
+            os.system(f'cp /tmp/processed-{message["filename"]} /nfsshare/processed-{message["filename"]}')
             print('Processed video uploaded')
             video.status = 'completed'
             session.commit()

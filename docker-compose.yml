@@ -8,8 +8,8 @@ services:
       - 5672:5672
       - 15672:15672
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq/
-      - rabbitmq_log:/var/log/rabbitmq/
+      - rabbitmq_data:/var/lib/rabbit/
+      - rabbitmq_log:/var/log/rabbit/
     restart: unless-stopped
     networks:
       - rabbitmq_go_net
@@ -22,18 +22,6 @@ services:
       interval: 5s
       timeout: 15s
       retries: 3  
-  db:
-    image: postgres
-    environment:
-      - POSTGRES_DB=vinyls
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - rabbitmq_go_net
 
   app-drones:
     build: ./app-drones
@@ -42,14 +30,14 @@ services:
     command: flask run --host=0.0.0.0
     environment:
       - RABBIT_HOST=rabbit
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=host.docker.internal
     depends_on:
-      - db
       - rabbit
+      - app-file-storage
     networks:
       - rabbitmq_go_net
     volumes:
-      - ./app-drones:/src
+      - nfsshare:/nfsshare
     restart: on-failure
 
   app-drones-worker:
@@ -57,23 +45,39 @@ services:
     command: python app.py
     environment:
       - RABBIT_HOST=rabbit
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=host.docker.internal
     depends_on:
-      - db
       - rabbit
+      - app-file-storage
     networks:
       - rabbitmq_go_net
     restart: on-failure
-    
-
+    volumes:
+      - nfsshare:/nfsshare
+  
+  app-file-storage:
+    image: itsthenetwork/nfs-server-alpine:12
+    environment:
+      SHARED_DIRECTORY: /nfsshare
+    restart: unless-stopped
+    volumes:
+      - nfsshare:/nfsshare
+    networks:
+      - rabbitmq_go_net
+    privileged: true
+    ports:
+      - "2049:2049"
 
 volumes:
+  nfsshare:
   rabbitmq_data:
   rabbitmq_log:
   postgres_data:
   app-drones:
+    driver: nfs
+    driver_opts:
+      share: app-file-storage:/nfsshare
 
 networks:
   rabbitmq_go_net:
     driver: bridge
-    
