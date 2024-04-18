@@ -1,4 +1,4 @@
-version: "3.2"
+version: "3.7"
 services:
   rabbit:
     image: rabbitmq:3-management-alpine
@@ -11,8 +11,6 @@ services:
       - rabbitmq_data:/var/lib/rabbit/
       - rabbitmq_log:/var/log/rabbit/
     restart: unless-stopped
-    networks:
-      - rabbitmq_go_net
     environment:
       RABBITMQ_ERLANG_COOKIE: "SWQOKODSQALRPCLNMEQG"
       RABBITMQ_DEFAULT_USER: "rabbitmq"
@@ -21,7 +19,7 @@ services:
       test: [ "CMD", "nc", "-z", "localhost", "5672" ]
       interval: 5s
       timeout: 15s
-      retries: 3  
+      retries: 3
 
   app-drones:
     build: ./app-drones
@@ -29,16 +27,14 @@ services:
       - 6000:5000
     command: flask run --host=0.0.0.0
     environment:
-      - RABBIT_HOST=rabbit
+      - RABBIT_HOST=${RABBIT_HOST}
+      - RABBIT_PORT=${RABBIT_PORT}
+      - RABBIT_USER=${RABBIT_USER}
+      - RABBIT_PASSWORD=${RABBIT_PASSWORD}
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=${POSTGRES_PORT}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    depends_on:
-      - rabbit
-      - app-file-storage
-    networks:
-      - rabbitmq_go_net
     volumes:
       - nfsshare:/nfsshare
     restart: on-failure
@@ -47,16 +43,14 @@ services:
     build: ./app-drones-worker
     command: python app.py
     environment:
-      - RABBIT_HOST=rabbit
+      - RABBIT_HOST=${RABBIT_HOST}
+      - RABBIT_PORT=${RABBIT_PORT}
+      - RABBIT_USER=${RABBIT_USER}
+      - RABBIT_PASSWORD=${RABBIT_PASSWORD}
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=${POSTGRES_PORT}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    depends_on:
-      - rabbit
-      - app-file-storage
-    networks:
-      - rabbitmq_go_net
     restart: on-failure
     volumes:
       - nfsshare:/nfsshare
@@ -68,11 +62,10 @@ services:
     restart: unless-stopped
     volumes:
       - nfsshare:/nfsshare
-    networks:
-      - rabbitmq_go_net
     privileged: true
     ports:
       - "2049:2049"
+
 
 volumes:
   nfsshare:
@@ -82,8 +75,5 @@ volumes:
   app-drones:
     driver: nfs
     driver_opts:
-      share: app-file-storage:/nfsshare
-
-networks:
-  rabbitmq_go_net:
-    driver: bridge
+      o: addr=${NFS_SERVER_IP},nolock,soft,rw
+      device: :/nfsshare
