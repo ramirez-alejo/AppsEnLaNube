@@ -184,6 +184,9 @@ def hay_conexion_bd():
 
 
 
+if __name__ == "__main__":
+    app.run(host='0.0.0.0')
+
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     db.session.remove()

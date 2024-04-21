@@ -24,7 +24,7 @@ services:
     build: ./app-drones
     ports:
       - 6000:5000
-    command: flask run --host=0.0.0.0
+    command: gunicorn wsgi:app -b 0.0.0.0:5000
     environment:
       - RABBIT_HOST=${RABBIT_HOST}
       - RABBIT_PORT=${RABBIT_PORT}
