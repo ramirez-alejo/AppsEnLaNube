@@ -29,7 +29,7 @@ postgres_password = os.environ.get("POSTGRES_PASSWORD", 'postgres')
 
 
 
-engine = create_engine(f'postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/postgres', pool_size=55, echo=True, max_overflow=0)
+engine = create_engine(f'postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/postgres', pool_size=400, max_overflow=0, echo=True)
 db_session = scoped_session(sessionmaker(autocommit=False,
                                          autoflush=False,
                                          bind=engine))
@@ -181,3 +181,9 @@ def hay_conexion_bd():
         print('Error en la conexión a la base de datos:', e)
         valor = False
     return valor
+
+
+
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    db.session.remove()
