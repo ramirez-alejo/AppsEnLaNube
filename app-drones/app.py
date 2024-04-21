@@ -29,7 +29,7 @@ postgres_password = os.environ.get("POSTGRES_PASSWORD", 'postgres')
 
 
 
-engine = create_engine(f'postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/postgres')
+engine = create_engine(f'postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/postgres', pool_size=55, echo=True, max_overflow=0)
 db_session = scoped_session(sessionmaker(autocommit=False,
                                          autoflush=False,
                                          bind=engine))
@@ -161,6 +161,8 @@ def delete_video(id):
     current_user = get_jwt_identity()
     video = Video.query.get(id)
     if not video or video.usuario != current_user['id']:
+        if video:
+            print('Video found with id', video.id, 'and user', video.usuario)
         return 'Task with id ' + str(id) + ' not found', 404
     
     if video not in db.session:
