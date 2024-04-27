@@ -2,7 +2,8 @@ import os, uuid, json, pika, sys
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from azure.storage.blob import BlobServiceClient
+from google.cloud import storage
+from google.oauth2 import service_account
 from modelos.usuario import Usuario
 from modelos.video import Video
 from sqlalchemy.sql import text
@@ -11,6 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from database import init_db
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+import logging
 
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'modelos'))
@@ -27,6 +29,22 @@ postgres_port = os.environ.get("POSTGRES_PORT", '5432')
 postgres_user = os.environ.get("POSTGRES_USER", 'postgres')
 postgres_password = os.environ.get("POSTGRES_PASSWORD", 'postgres')
 
+
+gcp_credentials = {
+    "type": os.environ.get("GCP_CREDENTIALS_TYPE", "service_account"),
+    "project_id": os.environ.get("GCP_CREDENTIALS_PROJECT_ID", ),
+    "private_key_id": os.environ.get("GCP_CREDENTIALS_PRIVATE_KEY_ID",),
+    "private_key": str(os.environ.get("GCP_CREDENTIALS_PRIVATE_KEY")).replace('\\n', '\n'),
+    "client_email": os.environ.get("GCP_CREDENTIALS_CLIENT_EMAIL"),
+    "client_id": os.environ.get("GCP_CREDENTIALS_CLIENT_ID"),
+    "auth_uri": os.environ.get("GCP_CREDENTIALS_AUTH_URI", "https://accounts.google.com/o/oauth2/auth"),
+    "token_uri": os.environ.get("GCP_CREDENTIALS_TOKEN_URI", "https://oauth2.googleapis.com/token"),
+    "auth_provider_x509_cert_url": os.environ.get("GCP_CREDENTIALS_AUTH_PROVIDER_X509_CERT_URL", "https://www.googleapis.com/oauth2/v1/certs"),
+    "client_x509_cert_url": os.environ.get("GCP_CREDENTIALS_CLIENT_X509_CERT_URL"),
+    "universe_domain": os.environ.get("GCP_CREDENTIALS_UNIVERSE_DOMAIN", "googleapis.com")
+}
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 engine = create_engine(f'postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/postgres', pool_size=400, max_overflow=0, echo=True)
@@ -119,12 +137,20 @@ def upload():
     file = request.files['video']
 
     file.filename = str(uuid.uuid4()) + secure_filename(file.filename)
-    file.save('/nfsshare/' + file.filename)
+    file.save(file.filename)
+
+    try:
+        upload_blob('drones-app-storage', file.filename, file.filename)
+    except Exception as e:
+        print('Error uploading video to storage:', e)
+        return str(e), 500
     
+    # Afher uploading the file to storage, we can delete the local file
+    os.remove(file.filename)
     #Insert the video entry in the db
     video = Video()
     video.name = file.filename
-    video.url = '/nfsshare/' + file.filename
+    video.url = file.filename
     video.status = 'pending'
     video.usuario = current_user['id']
     db.session.add(video)
@@ -183,6 +209,20 @@ def hay_conexion_bd():
     return valor
 
 
+def upload_blob(bucket_name, source_file_name, destination_blob_name):
+    storage_client = get_storage_client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+    generation_match_precondition = 0
+    blob.upload_from_filename(source_file_name, if_generation_match = generation_match_precondition)
+
+    print("\n-> Updaload storage object {} to bucket {} to {}".format(blob.name, bucket_name, destination_blob_name))
+
+def get_storage_client():
+    logger.info('Getting storage client with credentials ' + str(gcp_credentials))
+    credentials = service_account.Credentials.from_service_account_info(gcp_credentials)
+    logger.info('Storage client obtained')
+    return storage.Client(credentials=credentials)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0')
