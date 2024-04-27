@@ -9,7 +9,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbit/
       - rabbitmq_log:/var/log/rabbit/
-    restart: unless-stopped
+    restart: always
     environment:
       RABBITMQ_ERLANG_COOKIE: "SWQOKODSQALRPCLNMEQG"
       RABBITMQ_DEFAULT_USER: "rabbitmq"
@@ -42,7 +42,7 @@ services:
       - GCP_CREDENTIALS_CLIENT_X509_CERT_URL=${GCP_CREDENTIALS_CLIENT_X509_CERT_URL}
     volumes:
       - /home/nfsshare:/nfsshare
-    restart: on-failure
+    restart: always
 
   app-drones-worker:
     build: ./app-drones-worker
@@ -62,7 +62,7 @@ services:
       - GCP_CREDENTIALS_CLIENT_EMAIL=${GCP_CREDENTIALS_CLIENT_EMAIL}
       - GCP_CREDENTIALS_CLIENT_ID=${GCP_CREDENTIALS_CLIENT_ID}
       - GCP_CREDENTIALS_CLIENT_X509_CERT_URL=${GCP_CREDENTIALS_CLIENT_X509_CERT_URL}
-    restart: on-failure
+    restart: always 
     volumes:
       - /home/nfsshare:/nfsshare
 
