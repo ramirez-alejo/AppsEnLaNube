@@ -26,6 +26,6 @@ urllib3==2.2.1
 vine==5.1.0
 wcwidth==0.2.13
 Werkzeug==3.0.1
-azure-storage-blob==12.9.0
 psycopg2-binary == 2.9.9
 flask-jwt-extended==4.6.0
+google-cloud-storage==2.16.0

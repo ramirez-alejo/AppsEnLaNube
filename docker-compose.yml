@@ -1,4 +1,3 @@
-version: "3.2"
 services:
   rabbit:
     image: rabbitmq:3-management-alpine
@@ -10,9 +9,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbit/
       - rabbitmq_log:/var/log/rabbit/
-    restart: unless-stopped
-    networks:
-      - rabbitmq_go_net
+    restart: always
     environment:
       RABBITMQ_ERLANG_COOKIE: "SWQOKODSQALRPCLNMEQG"
       RABBITMQ_DEFAULT_USER: "rabbitmq"
@@ -21,69 +18,59 @@ services:
       test: [ "CMD", "nc", "-z", "localhost", "5672" ]
       interval: 5s
       timeout: 15s
-      retries: 3  
+      retries: 3
 
   app-drones:
     build: ./app-drones
     ports:
       - 6000:5000
-    command: flask run --host=0.0.0.0
+    command: gunicorn wsgi:app -b 0.0.0.0:5000
     environment:
-      - RABBIT_HOST=rabbit
+      - RABBIT_HOST=${RABBIT_HOST}
+      - RABBIT_PORT=${RABBIT_PORT}
+      - RABBIT_USER=${RABBIT_USER}
+      - RABBIT_PASSWORD=${RABBIT_PASSWORD}
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=${POSTGRES_PORT}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    depends_on:
-      - rabbit
-      - app-file-storage
-    networks:
-      - rabbitmq_go_net
+      - GCP_CREDENTIALS_PROJECT_ID=${GCP_CREDENTIALS_PROJECT_ID}
+      - GCP_CREDENTIALS_PRIVATE_KEY_ID=${GCP_CREDENTIALS_PRIVATE_KEY_ID}
+      - GCP_CREDENTIALS_PRIVATE_KEY=${GCP_CREDENTIALS_PRIVATE_KEY}
+      - GCP_CREDENTIALS_CLIENT_EMAIL=${GCP_CREDENTIALS_CLIENT_EMAIL}
+      - GCP_CREDENTIALS_CLIENT_ID=${GCP_CREDENTIALS_CLIENT_ID}
+      - GCP_CREDENTIALS_CLIENT_X509_CERT_URL=${GCP_CREDENTIALS_CLIENT_X509_CERT_URL}
     volumes:
-      - nfsshare:/nfsshare
-    restart: on-failure
+      - /home/nfsshare:/nfsshare
+    restart: always
 
   app-drones-worker:
     build: ./app-drones-worker
     command: python app.py
     environment:
-      - RABBIT_HOST=rabbit
+      - RABBIT_HOST=${RABBIT_HOST}
+      - RABBIT_PORT=${RABBIT_PORT}
+      - RABBIT_USER=${RABBIT_USER}
+      - RABBIT_PASSWORD=${RABBIT_PASSWORD}
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=${POSTGRES_PORT}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    depends_on:
-      - rabbit
-      - app-file-storage
-    networks:
-      - rabbitmq_go_net
-    restart: on-failure
+      - GCP_CREDENTIALS_PROJECT_ID=${GCP_CREDENTIALS_PROJECT_ID}
+      - GCP_CREDENTIALS_PRIVATE_KEY_ID=${GCP_CREDENTIALS_PRIVATE_KEY_ID}
+      - GCP_CREDENTIALS_PRIVATE_KEY=${GCP_CREDENTIALS_PRIVATE_KEY}
+      - GCP_CREDENTIALS_CLIENT_EMAIL=${GCP_CREDENTIALS_CLIENT_EMAIL}
+      - GCP_CREDENTIALS_CLIENT_ID=${GCP_CREDENTIALS_CLIENT_ID}
+      - GCP_CREDENTIALS_CLIENT_X509_CERT_URL=${GCP_CREDENTIALS_CLIENT_X509_CERT_URL}
+    restart: always 
     volumes:
-      - nfsshare:/nfsshare
-  
-  app-file-storage:
-    image: itsthenetwork/nfs-server-alpine:12
-    environment:
-      SHARED_DIRECTORY: /nfsshare
-    restart: unless-stopped
-    volumes:
-      - nfsshare:/nfsshare
-    networks:
-      - rabbitmq_go_net
-    privileged: true
-    ports:
-      - "2049:2049"
+      - /home/nfsshare:/nfsshare
+
 
 volumes:
-  nfsshare:
   rabbitmq_data:
   rabbitmq_log:
   postgres_data:
   app-drones:
-    driver: nfs
-    driver_opts:
-      share: app-file-storage:/nfsshare
+  app-drones-worker:
 
-networks:
-  rabbitmq_go_net:
-    driver: bridge
