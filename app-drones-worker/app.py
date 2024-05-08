@@ -136,7 +136,7 @@ def get_storage_client():
     credentials = service_account.Credentials.from_service_account_info(gcp_credentials)
     return storage.Client(credentials=credentials)
 
-channel.basic_consume(queue='files', on_message_callback=file_processed, auto_ack=True)
+channel.basic_consume(queue='files', on_message_callback=file_processed, auto_ack=False)
 
 print(' [*] Waiting for messages. To exit press CTRL+C')
 channel.start_consuming()
