@@ -1,6 +1,6 @@
 import os, json, pika, sys
 from sqlalchemy import create_engine
-from google.cloud import storage
+from google.cloud import storage, pubsub_v1
 from google.oauth2 import service_account
 from modelos.video import Video
 from modelos.usuario import Usuario
@@ -12,14 +12,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'modelos'))
-
-rabbit_host = os.environ.get("RABBIT_HOST", 'localhost')
-rabbit_port = os.environ.get("RABBIT_PORT", '5672')
-rabbit_user = os.environ.get("RABBIT_USER", 'rabbitmq')
-rabbit_password = os.environ.get("RABBIT_PASSWORD", 'rabbitmq')
-connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password)))
-channel = connection.channel()
-channel.queue_declare(queue='files')
 
 
 postgres_host = os.environ.get("POSTGRES_HOST", 'localhost')
@@ -41,6 +33,7 @@ gcp_credentials = {
     "client_x509_cert_url": os.environ.get("GCP_CREDENTIALS_CLIENT_X509_CERT_URL"),
     "universe_domain": os.environ.get("GCP_CREDENTIALS_UNIVERSE_DOMAIN", "googleapis.com")
 }
+credentials = service_account.Credentials.from_service_account_info(gcp_credentials)
 
 def get_engine(user, passwd, host, port, db):
     url = f"postgresql://{user}:{passwd}@{host}:{port}/{db}"
@@ -57,7 +50,7 @@ if not os.path.exists('/tmp'):
     os.makedirs('/tmp')
 
 
-def file_processed(ch, method, properties, body):
+def process_file(body):
     print('Received message:', body)
     message = json.loads(body)
     try:
@@ -133,10 +126,35 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name):
     print("\n-> Updaload storage object {} to bucket {} to {}".format(blob.name, bucket_name, destination_blob_name))
 
 def get_storage_client():
-    credentials = service_account.Credentials.from_service_account_info(gcp_credentials)
     return storage.Client(credentials=credentials)
 
-channel.basic_consume(queue='files', on_message_callback=file_processed, auto_ack=False)
 
-print(' [*] Waiting for messages. To exit press CTRL+C')
-channel.start_consuming()
+topic_name = 'projects/{project_id}/topics/{topic}'.format(
+    project_id=os.getenv('GCP_CREDENTIALS_PROJECT_ID'),
+    topic='videos',
+)
+
+subscription_name = 'projects/{project_id}/subscriptions/{sub}'.format(
+    project_id=os.getenv('GCP_CREDENTIALS_PROJECT_ID'),
+    sub='videos-sub',
+)
+
+def callback(message):
+    process_file(message.data)
+    message.ack()
+
+
+subscriber = pubsub_v1.SubscriberClient(credentials=credentials)
+subscription_path = subscriber.subscription_path(gcp_credentials['project_id'], 'videos-sub')
+streaming_pull_future = subscriber.subscribe(subscription_path, callback=callback)
+print(f"Listening for messages on {subscription_path}..\n")
+
+
+with subscriber:
+    try:
+        # When `timeout` is not set, result() will block indefinitely,
+        # unless an exception is encountered first.
+        streaming_pull_future.result()
+    except TimeoutError:
+        streaming_pull_future.cancel()  # Trigger the shutdown.
+        streaming_pull_future.result()  # Block until the shutdown is complete.
