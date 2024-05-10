@@ -4,3 +4,4 @@ SQLAlchemy==2.0.29
 SQLAlchemy_Utils==0.41.2
 psycopg2-binary == 2.9.9
 google-cloud-storage==2.16.0
+google-cloud-pubsub>=2.7.0

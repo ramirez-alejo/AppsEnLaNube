@@ -2,7 +2,7 @@ import os, uuid, json, pika, sys
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from google.cloud import storage
+from google.cloud import storage, pubsub_v1
 from google.oauth2 import service_account
 from modelos.usuario import Usuario
 from modelos.video import Video
@@ -18,12 +18,6 @@ import logging
 sys.path.append(os.path.join(os.path.dirname(__file__), 'modelos'))
 
 
-rabbit_host = os.environ.get("RABBIT_HOST", 'localhost')
-rabbit_port = os.environ.get("RABBIT_PORT", '5672')
-rabbit_user = os.environ.get("RABBIT_USER", 'rabbitmq')
-rabbit_password = os.environ.get("RABBIT_PASSWORD", 'rabbitmq')
-
-
 postgres_host = os.environ.get("POSTGRES_HOST", 'localhost')
 postgres_port = os.environ.get("POSTGRES_PORT", '5432')
 postgres_user = os.environ.get("POSTGRES_USER", 'postgres')
@@ -32,7 +26,7 @@ postgres_password = os.environ.get("POSTGRES_PASSWORD", 'postgres')
 
 gcp_credentials = {
     "type": os.environ.get("GCP_CREDENTIALS_TYPE", "service_account"),
-    "project_id": os.environ.get("GCP_CREDENTIALS_PROJECT_ID", ),
+    "project_id": os.environ.get("GCP_CREDENTIALS_PROJECT_ID"),
     "private_key_id": os.environ.get("GCP_CREDENTIALS_PRIVATE_KEY_ID",),
     "private_key": str(os.environ.get("GCP_CREDENTIALS_PRIVATE_KEY")).replace('\\n', '\n'),
     "client_email": os.environ.get("GCP_CREDENTIALS_CLIENT_EMAIL"),
@@ -45,6 +39,19 @@ gcp_credentials = {
 }
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+credentials = service_account.Credentials.from_service_account_info(gcp_credentials)
+publisher = pubsub_v1.PublisherClient(credentials=credentials)
+topic_name = 'projects/{project_id}/topics/{topic}'.format(
+    project_id=os.getenv('GCP_CREDENTIALS_PROJECT_ID'),
+    topic='videos',
+)
+
+try:
+    publisher.create_topic(name=topic_name)
+except Exception as e:
+    print('Error creating topic:', e)
+
 
 
 engine = create_engine(f'postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/postgres', pool_size=400, max_overflow=0, echo=True)
@@ -66,31 +73,6 @@ with app.app_context():
 app.config["JWT_SECRET_KEY"] = "super-secret"
 jwt = JWTManager(app)
 
-connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password)))
-channel = connection.channel()
-channel.queue_declare(queue='files')
-channel.close()
-connection.close()
-
-
-def get_rabbit_connection():
-    global connection
-    try:
-        if connection.is_closed:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password), heartbeat=600))
-    except (NameError, pika.exceptions.ConnectionClosed):
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=pika.PlainCredentials(rabbit_user, rabbit_password), heartbeat=600))
-    return connection
-
-def get_rabbit_channel():
-    global channel
-    connection = get_rabbit_connection()
-    try:
-        if channel.is_closed:
-            channel = connection.channel()
-    except (NameError, pika.exceptions.ConnectionClosed):
-        channel = connection.channel()
-    return channel
 
 
 @app.route('/api/health', methods=['GET'])
@@ -155,12 +137,9 @@ def upload():
     video.usuario = current_user['id']
     db.session.add(video)
     db.session.commit()
-     # Create a json message with the file name and path
     message = json.dumps({"filename": file.filename, "path": video.url, "id": video.id})
-    with get_rabbit_channel() as channel:
-        channel.basic_publish(exchange='', routing_key='files', body=message)
-
-
+    future = publisher.publish(topic_name, message.encode())
+    future.result()
     return 'File uploaded, Created task with id = ' + str(video.id), 201
 
 @app.route('/api/tasks', methods=['GET'])
@@ -219,9 +198,6 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name):
     print("\n-> Updaload storage object {} to bucket {} to {}".format(blob.name, bucket_name, destination_blob_name))
 
 def get_storage_client():
-    logger.info('Getting storage client with credentials ' + str(gcp_credentials))
-    credentials = service_account.Credentials.from_service_account_info(gcp_credentials)
-    logger.info('Storage client obtained')
     return storage.Client(credentials=credentials)
 
 if __name__ == "__main__":
