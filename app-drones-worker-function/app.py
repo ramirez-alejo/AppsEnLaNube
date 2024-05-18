@@ -1,11 +1,15 @@
+import base64
 import os, json, sys
+import functions_framework
 from sqlalchemy import create_engine
-from google.cloud import storage, pubsub_v1
+from google.cloud import storage
 from google.oauth2 import service_account
-from modelos.video import Video
-from modelos.usuario import Usuario
+from video import Video
+from usuario import Usuario
 from sqlalchemy.orm import  sessionmaker
 from database import init_db, get_session
+from ffmpeg import FFmpeg
+import logging
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -22,15 +26,15 @@ postgres_password = os.environ.get("POSTGRES_PASSWORD", 'postgres')
 
 gcp_credentials = {
     "type": os.environ.get("GCP_CREDENTIALS_TYPE", "service_account"),
-    "project_id": os.environ.get("GCP_CREDENTIALS_PROJECT_ID", ),
-    "private_key_id": os.environ.get("GCP_CREDENTIALS_PRIVATE_KEY_ID",),
-    "private_key": str(os.environ.get("GCP_CREDENTIALS_PRIVATE_KEY")).replace('\\n', '\n'),
-    "client_email": os.environ.get("GCP_CREDENTIALS_CLIENT_EMAIL"),
-    "client_id": os.environ.get("GCP_CREDENTIALS_CLIENT_ID"),
+    "project_id": os.environ.get("GCP_CREDENTIALS_PROJECT_ID", "appsnube"),
+    "private_key_id": os.environ.get("GCP_CREDENTIALS_PRIVATE_KEY_ID",""),
+    "private_key": str(os.environ.get("GCP_CREDENTIALS_PRIVATE_KEY", "")).replace('\\n', '\n'),
+    "client_email": os.environ.get("GCP_CREDENTIALS_CLIENT_EMAIL", ""),
+    "client_id": os.environ.get("GCP_CREDENTIALS_CLIENT_ID", ""),
     "auth_uri": os.environ.get("GCP_CREDENTIALS_AUTH_URI", "https://accounts.google.com/o/oauth2/auth"),
     "token_uri": os.environ.get("GCP_CREDENTIALS_TOKEN_URI", "https://oauth2.googleapis.com/token"),
     "auth_provider_x509_cert_url": os.environ.get("GCP_CREDENTIALS_AUTH_PROVIDER_X509_CERT_URL", "https://www.googleapis.com/oauth2/v1/certs"),
-    "client_x509_cert_url": os.environ.get("GCP_CREDENTIALS_CLIENT_X509_CERT_URL"),
+    "client_x509_cert_url": os.environ.get("GCP_CREDENTIALS_CLIENT_X509_CERT_URL", ""),
     "universe_domain": os.environ.get("GCP_CREDENTIALS_UNIVERSE_DOMAIN", "googleapis.com")
 }
 credentials = service_account.Credentials.from_service_account_info(gcp_credentials)
@@ -42,46 +46,81 @@ def get_engine(user, passwd, host, port, db):
     engine = create_engine(url, pool_size=50, echo=True)
     return engine
 
-engine = get_engine(postgres_user, postgres_password, postgres_host, postgres_port, 'postgres')
-init_db()
-
 #Make sure the tmp folder exists
 if not os.path.exists('/tmp'):
     os.makedirs('/tmp')
 
 
-def process_file(body):
-    print('Received message:', body)
+@functions_framework.cloud_event
+def process_file(cloud_event):
+    body = base64.b64decode(cloud_event.data["message"]["data"])
+    logging.warning('Received message: %s', body)
+    engine = get_engine(postgres_user, postgres_password, postgres_host, postgres_port, 'postgres')
+    init_db()
+    #let's download the logo
+    if not os.path.exists('/tmp/logo.png'):
+        with open('/tmp/logo.png', 'wb') as f:
+            f.write(download_blob('apps-nube', '', 'IDRL.png'))
     message = json.loads(body)
+    logging.warning('MessageId: %s', message['id'])
+    #parse message id as int
+    message['id'] = int(message['id'])
     try:
         with get_session() as session:
-            print('Updating video status to processing')
+            logging.warning('Updating video status to processing')
             video = session.query(Video).get(message['id'])
             if video is None:
                 print('Video with id', message['id'], 'not found')
                 return False
-            print('Video found with filename:', video.name)
+            logging.warning('Video found with filename:', video.name)
             video.status = 'processing'
             session.commit()
-            print('Processing video')
+            logging.warning('Processing video')
 
             # Download video
-            print('Downloading video')
+            logging.warning('Downloading video')
             videoPath = f'/tmp/{message["filename"]}'
             with open(videoPath, 'wb') as f:
                 f.write(download_blob('apps-nube', '', message['filename']))
-            print('Video downloaded')
+            logging.warning('Video downloaded')
 
             # Process video
-            #using shell command cut the video to 20 seconds
-            os.system(f'ffmpeg -i {videoPath} -t 20 /tmp/short-{message["filename"]}')
-            os.system(f'ffmpeg -i /tmp/short-{message["filename"]} -vf scale=1280:720 /tmp/aspect-{message["filename"]}')
-            os.system(f'ffmpeg -i /tmp/aspect-{message["filename"]} -i logos/IDRL.png -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,0,2)\'" /tmp/logo-{message["filename"]}')
-            os.system(f'ffmpeg -i /tmp/logo-{message["filename"]} -i logos/IDRL.png -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,18,20)\'" /tmp/processed-{message["filename"]}')
+            ffmpeg = (
+                FFmpeg()
+                .input(videoPath)
+                .output(f'/tmp/short-{message["filename"]}', t=20)
+            )
+            ffmpeg.execute()
+            logging.warning('Short video created')
+            ffmpeg = (
+                FFmpeg()
+                .input(f'/tmp/short-{message["filename"]}')
+                .output(f'/tmp/aspect-{message["filename"]}', vf='scale=1280:720')
+            )
+            ffmpeg.execute()
+            logging.warning('Aspect video created')
 
-            print('Uploading processed video')
+            ffmpeg = (
+                FFmpeg()
+                .input(f'/tmp/aspect-{message["filename"]}')
+                .input('/tmp/logo.png')
+                .option('filter_complex', '[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,0,2)\'')
+                .output(f'/tmp/logo-{message["filename"]}')
+            )
+            ffmpeg.execute()
+            
+            logging.warning('Logo video created')
+            ffmpeg = (
+                FFmpeg()
+                .input(f'/tmp/logo-{message["filename"]}')
+                .input('/tmp/logo.png')
+                .option('filter_complex', '[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10:enable=\'between(t,18,20)\'')
+                .output(f'/tmp/processed-{message["filename"]}')
+            )
+            ffmpeg.execute()
+            logging.warning('Uploading processed video')
 
-            upload_blob('upload_blob', f'/tmp/processed-{message["filename"]}', f'processed-{message["filename"]}')
+            upload_blob('apps-nube', f'/tmp/processed-{message["filename"]}', f'processed-{message["filename"]}')
 
             # Afher uploading the file to storage, we can delete the local files
             os.remove(f'/tmp/processed-{message["filename"]}')
@@ -106,7 +145,6 @@ def process_file(body):
         raise e
         
 
-
 def download_blob(bucket_name, source_folder, blob_name):
     storage_client = get_storage_client()
     bucket = storage_client.bucket(bucket_name)
@@ -127,34 +165,3 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name):
 
 def get_storage_client():
     return storage.Client(credentials=credentials)
-
-
-topic_name = 'projects/{project_id}/topics/{topic}'.format(
-    project_id=os.getenv('GCP_CREDENTIALS_PROJECT_ID'),
-    topic='videos',
-)
-
-subscription_name = 'projects/{project_id}/subscriptions/{sub}'.format(
-    project_id=os.getenv('GCP_CREDENTIALS_PROJECT_ID'),
-    sub='videos-sub',
-)
-
-def callback(message):
-    process_file(message.data)
-    message.ack()
-
-
-subscriber = pubsub_v1.SubscriberClient(credentials=credentials)
-subscription_path = subscriber.subscription_path(gcp_credentials['project_id'], 'videos-sub')
-streaming_pull_future = subscriber.subscribe(subscription_path, callback=callback)
-print(f"Listening for messages on {subscription_path}..\n")
-
-
-with subscriber:
-    try:
-        # When `timeout` is not set, result() will block indefinitely,
-        # unless an exception is encountered first.
-        streaming_pull_future.result()
-    except TimeoutError:
-        streaming_pull_future.cancel()  # Trigger the shutdown.
-        streaming_pull_future.result()  # Block until the shutdown is complete.

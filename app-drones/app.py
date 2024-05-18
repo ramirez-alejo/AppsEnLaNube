@@ -122,7 +122,7 @@ def upload():
     file.save(file.filename)
 
     try:
-        upload_blob('drones-app-storage', file.filename, file.filename)
+        upload_blob('apps-nube', file.filename, file.filename)
     except Exception as e:
         print('Error uploading video to storage:', e)
         return str(e), 500
